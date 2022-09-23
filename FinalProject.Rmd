@@ -1,0 +1,152 @@
+---
+title: "Kaggle"
+author: "Karina Santoso"
+date: "11/25/2021"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+library(MASS)
+library(class) # knn
+library(glmnet) # ridge
+library(tree)
+```
+
+## Question 1
+
+```{r}
+heart_train <- read.csv("HDtrainNew.csv")
+heart_test <- read.csv("HDtestNoYNew.csv")
+
+head(heart_train)
+```
+
+```{r}
+heart_train$Sex[which(heart_train$Sex == "Male")] = "M"
+heart_train$Sex[which(heart_train$Sex == "Female")] = "F"
+
+heart_test$Sex[which(heart_test$Sex == "Male")] = "M"
+heart_test$Sex[which(heart_test$Sex == "Female")] = "F"
+
+heart_train$smoking_status[is.na(heart_train$smoking_status)] <- 'Unknown'
+heart_test$smoking_status[is.na(heart_test$smoking_status)] <- 'Unknown'
+
+heart_train$over65 <- 0
+heart_train$over65[heart_train$Age >= 65] <- 1
+
+heart_test$over65 <- 0
+heart_test$over65[heart_test$Age >= 65] <- 1
+
+head(heart_train)
+```
+
+```{r}
+sum(is.na(heart_train))
+sum(is.na(heart_test))
+
+columns <- list(colnames(heart_train))
+train <- numeric(0)
+test <- numeric(0)
+
+for(i in 1:ncol(heart_train)) { 
+  train <- c(train, sum(is.na(heart_train[ , i])))
+}
+
+for(i in 1:ncol(heart_test)) { 
+  test <- c(test, sum(is.na(heart_test[ , i])))
+}
+
+test <- c(test, NA)
+
+df <- data.frame(columns, train, test)
+names(df) <- c('column', 'train', 'test')
+df
+```
+
+The training data set has 2524 missing values, while the testing data set has 1148 missing values. We see that these missing values are divided evenly in the ever_married, work_type, Residence_type, and smoking_status columns for both data sets. This could potentially be a result of subjects who did not provide this information or did not consent for it to be released in the data.
+
+```{r}
+table(heart_train$smoking_status)
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'formerly smoked']))
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'never smoked']))
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'smokes']))
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'Unknown']))
+table(heart_train$smoking_status)
+```
+
+```{r}
+table(heart_train$ever_married)
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'formerly smoked']))
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'never smoked']))
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'smokes']))
+mean(na.omit(heart_train$Cholesterol[heart_train$smoking_status == 'Unknown']))
+heart_train$smoking_status[is.na(heart_train$smoking_status)] <- 'Unknown'
+table(heart_train$smoking_status)
+```
+
+```{r}
+head(heart_train)
+```
+
+```{r}
+heart_train$HeartDisease2 = 0
+heart_train$HeartDisease2[which(heart_train$HeartDisease == "Yes")] = 1
+
+heart_test$HeartDisease2 = 0
+heart_test$HeartDisease2[which(heart_test$HeartDisease == "Yes")] = 1
+
+heart_test[is.na(heart_test)] <- 0
+heart_train[is.na(heart_train)] <- 0
+
+heart_train = heart_train[-21]
+```
+
+```{r}
+tree=tree(factor(HeartDisease2)~.,heart_train)
+summary(tree)
+
+tree.pred=predict(tree,heart_train, type='class')
+table(tree.pred,heart_train$HeartDisease2)
+(1802+1525)/(1802+1525+466+427)
+
+tree.pred=predict(tree, heart_test, type='class')
+```
+
+a)
+
+```{r}
+S.X.train.scaled <- scale(heart_train[,c(3, 5, 6, 9, 11, 17, 18)])
+S.X.test.scaled <- scale(heart_test[,c(3, 5, 6, 9, 11, 17, 18)])
+
+S.out.train <- knn(S.X.train.scaled, S.X.train.scaled, heart_train$HeartDisease2, k=25)
+S.out.test <- knn(S.X.train.scaled, S.X.test.scaled, heart_train$HeartDisease2, k=25)
+```
+
+My training model was a K-Nearest Neighbors model with parameter k = 25. The predictor variables used to train the model were all seven of the numerical predictors: Age, RestingBP, Cholestrol, MaxHR, Oldpeak, avg_glucose_level, and bmi.
+
+b)
+
+```{r}
+table(S.out.train, heart_train$HeartDisease2)
+mean(S.out.train!=heart_train$HeartDisease2)
+```
+
+My model had a training accuracy of 0.1971.
+
+c)
+
+```{r}
+pred <- rep("Yes",dim(heart_test)[1])
+pred[tree.pred == 0]="No"
+
+submission <- data.frame(Ob = 1:1808, HeartDisease = pred)
+write.csv(submission, file = "~/Desktop/predictions.csv", row.names = F)
+```
+
+
+
+
+
+
